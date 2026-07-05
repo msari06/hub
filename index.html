@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Proje Aktivite Hub'ı</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --fg: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --agent: #bc8cff; --human: #3fb950; --chip: #21262d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header {
+    padding: 22px 20px 16px; border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: var(--bg); z-index: 5;
+  }
+  h1 { margin: 0 0 4px; font-size: 20px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 0 16px; }
+  .totals { display: flex; gap: 18px; margin-top: 12px; flex-wrap: wrap; }
+  .totals b { font-size: 20px; }
+  .totals span { color: var(--muted); font-size: 12px; display: block; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 6px; }
+  .filters select {
+    background: var(--chip); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 7px; padding: 6px 10px; font-size: 13px;
+  }
+  main { padding: 12px 0 60px; }
+  .event {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .event .top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px;
+    background: var(--chip); color: var(--muted); border: 1px solid var(--border);
+  }
+  .badge.agent { color: var(--agent); border-color: var(--agent); }
+  .badge.human { color: var(--human); border-color: var(--human); }
+  .kind {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--accent); font-weight: 700;
+  }
+  .proj { font-weight: 600; }
+  .ts { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .summary { margin: 8px 0 0; }
+  .details { color: var(--muted); font-size: 13px; margin: 6px 0 0; white-space: pre-wrap; }
+  .links { margin-top: 8px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .links a { color: var(--accent); font-size: 12px; text-decoration: none; }
+  .links a:hover { text-decoration: underline; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  .foot { color: var(--muted); font-size: 11px; text-align: center; padding: 20px 0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Proje Aktivite Hub'ı</h1>
+    <div class="sub" id="genAt">—</div>
+    <div class="totals" id="totals"></div>
+    <div class="filters">
+      <select id="fProject"><option value="">Tüm projeler</option></select>
+      <select id="fActor"><option value="">İnsan + Agent</option>
+        <option value="agent">Yalnız agent</option>
+        <option value="human">Yalnız insan</option>
+      </select>
+      <select id="fKind"><option value="">Tüm tipler</option></select>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="wrap" id="feed"></div>
+</main>
+<div class="foot">hub · append-only ndjson → statik feed</div>
+
+<script>
+window.__HUB__ = {"generatedAt":"2026-07-05 19:33 UTC","totals":{"projects":2,"events":7,"agentEvents":5},"projects":{"hub":{"name":"hub","count":2,"last_ts":"2026-07-05T19:32:21Z","agent":1,"human":1},"myz":{"name":"myz","count":5,"last_ts":"2026-07-05T19:32:21Z","agent":4,"human":1}},"actors":{"mehmet":{"name":"mehmet","kind":"human","count":2},"claude":{"name":"claude","kind":"agent","count":5}},"events":[{"id":"4347a326a87c","ts":"2026-07-05T19:32:21Z","project":"hub","actor":"mehmet","actor_kind":"human","kind":"start","summary":"Hub fikri: tüm projeler için agent-native aktivite akışı","details":"kişisel/dogfood araç olarak başla; ilk kama agent aktivite akışı","links":[]},{"id":"f125d3901954","ts":"2026-07-05T19:32:21Z","project":"hub","actor":"claude","actor_kind":"agent","kind":"did","summary":"Hub iskeleti kuruldu: post.py + generate.py + template.html","details":"","links":[]},{"id":"24ce3100fac6","ts":"2026-07-05T19:32:21Z","project":"myz","actor":"claude","actor_kind":"agent","kind":"pr","summary":"/pieces endpoint (Sprint 5 #13) — CorePiece CRUD + bulk-upsert","details":"","links":["https://github.com/msari06/myz/pull/22"]},{"id":"0fa537adbb58","ts":"2026-07-05T19:32:21Z","project":"myz","actor":"claude","actor_kind":"agent","kind":"did","summary":"C2 yamuk düzeltme referans implementasyonu (calc/geometry.py)","details":"median axis + mavi dikme izdüşümü; round() yok, tam float korunur","links":[]},{"id":"ecc64c29f407","ts":"2026-07-05T19:32:21Z","project":"myz","actor":"claude","actor_kind":"agent","kind":"pr","summary":"Cloudflare pano düzeltmesi — assets frontend→roadmap","details":"","links":["https://github.com/msari06/myz/pull/25"]},{"id":"f12fff704840","ts":"2026-07-05T19:32:21Z","project":"myz","actor":"claude","actor_kind":"agent","kind":"ci","summary":"Roadmap panosu Cloudflare Worker'da yayında","details":"","links":["https://myz.myzstatus.workers.dev/"]},{"id":"ea5018f049cb","ts":"2026-07-05T19:32:21Z","project":"myz","actor":"mehmet","actor_kind":"human","kind":"note","summary":"Sprint 5 (karot işaretleme) başlıyor — kalp özellik","details":"","links":[]}]};
+
+(function () {
+  var data = window.__HUB__ || { generatedAt: "", totals: {}, projects: {}, actors: {}, events: [] };
+  var feed = document.getElementById("feed");
+  var fProject = document.getElementById("fProject");
+  var fActor = document.getElementById("fActor");
+  var fKind = document.getElementById("fKind");
+
+  document.getElementById("genAt").textContent = "Üretim: " + (data.generatedAt || "—");
+
+  var t = data.totals || {};
+  document.getElementById("totals").innerHTML =
+    metric(t.projects, "proje") + metric(t.events, "olay") + metric(t.agentEvents, "agent olayı");
+
+  function metric(n, label) {
+    return '<div><b>' + (n || 0) + '</b><span>' + label + '</span></div>';
+  }
+
+  Object.keys(data.projects || {}).sort().forEach(function (p) {
+    fProject.appendChild(opt(p, data.projects[p].name || p));
+  });
+  var kinds = {};
+  (data.events || []).forEach(function (e) { kinds[e.kind] = true; });
+  Object.keys(kinds).sort().forEach(function (k) { fKind.appendChild(opt(k, k)); });
+
+  function opt(v, label) { var o = document.createElement("option"); o.value = v; o.textContent = label; return o; }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function render() {
+    var pv = fProject.value, av = fActor.value, kv = fKind.value;
+    var rows = (data.events || []).filter(function (e) {
+      if (pv && e.project !== pv) return false;
+      if (av && e.actor_kind !== av) return false;
+      if (kv && e.kind !== kv) return false;
+      return true;
+    });
+    if (!rows.length) { feed.innerHTML = '<div class="empty">Bu filtreyle olay yok.</div>'; return; }
+    feed.innerHTML = rows.map(function (e) {
+      var links = (e.links || []).map(function (l) {
+        return '<a href="' + esc(l) + '" target="_blank" rel="noopener">' + esc(l) + '</a>';
+      }).join("");
+      return '<div class="event">' +
+        '<div class="top">' +
+          '<span class="badge ' + esc(e.actor_kind) + '">' + esc(e.actor) + '</span>' +
+          '<span class="kind">' + esc(e.kind) + '</span>' +
+          '<span class="proj">' + esc(e.project) + '</span>' +
+          '<span class="ts">' + esc(e.ts) + '</span>' +
+        '</div>' +
+        '<div class="summary">' + esc(e.summary) + '</div>' +
+        (e.details ? '<div class="details">' + esc(e.details) + '</div>' : '') +
+        (links ? '<div class="links">' + links + '</div>' : '') +
+      '</div>';
+    }).join("");
+  }
+
+  fProject.addEventListener("change", render);
+  fActor.addEventListener("change", render);
+  fKind.addEventListener("change", render);
+  render();
+})();
+</script>
+</body>
+</html>

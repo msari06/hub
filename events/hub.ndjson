@@ -1,0 +1,2 @@
+{"id": "4347a326a87c", "ts": "2026-07-05T19:32:21Z", "project": "hub", "actor": "mehmet", "actor_kind": "human", "kind": "start", "summary": "Hub fikri: tüm projeler için agent-native aktivite akışı", "details": "kişisel/dogfood araç olarak başla; ilk kama agent aktivite akışı", "links": []}
+{"id": "f125d3901954", "ts": "2026-07-05T19:32:21Z", "project": "hub", "actor": "claude", "actor_kind": "agent", "kind": "did", "summary": "Hub iskeleti kuruldu: post.py + generate.py + template.html", "details": "", "links": []}
