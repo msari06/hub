@@ -63,14 +63,20 @@ ama Mutter yolunda bir engel çıkmadıkça yazılmayacak.
 
 ### 2.2 Medya hattı (GStreamer, monitör başına)
 
-**Aşama 1 (JPEG):**
+**Aşama 1 (JPEG) — uygulandı:**
 ```
-pipewiresrc fd=<fd> path=<node> always-copy=true
-  ! videorate drop-only=true max-rate=30
-  ! videoscale ! video/x-raw,width=<≤1600>
+pipewiresrc path=<node> always-copy=true do-timestamp=true
+  ! video/x-raw,max-framerate=30/1
+  ! queue max-size-buffers=1 leaky=downstream
+  ! videoscale ! video/x-raw,width=1600,height=<orantılı>
   ! videoconvert ! jpegenc quality=60
   ! appsink drop=true max-buffers=1 sync=false
 ```
+`videorate` kullanılmadı: bir sonraki kareyi beklerken öncekini tutar, ekran durunca son
+değişiklik takılı kalabilir. Kare hızını Mutter sınırlıyor (max-framerate); Mutter, atladığı
+son değişikliği "follow-up" karesiyle sonradan yine gönderiyor. Mutter sınırı uygulamazsa
+diye pipewiresrc çıkışında bir emniyet probu var. Portal yerine Mutter API kullanıldığı için
+`fd=` yok; süreç sandbox'ta olmadığından PipeWire'a doğrudan bağlanılıyor.
 
 **Aşama 4 (NVENC H.264):**
 ```
@@ -137,7 +143,7 @@ sınıflandırılır. Sınıflandırma parmaklar kalkana kadar değişmez.
 - **Bind:** `127.0.0.1` + Tailscale IP'si (`tailscale ip -4`). tailscaled geç kalkarsa sunucu periyodik olarak tekrar dener.
 - **HTTPS:** Service worker, PWA kurulumu ve WebCodecs güvenli bağlam (HTTPS) ister. Önerim `tailscale serve --bg https:443 http://127.0.0.1:<port>`. Geçerli `*.ts.net` sertifikası sağlar ve otomatik yenilenir. Bu kurulumda sunucu yalnız localhost'u dinler, bu da istenenden daha da sıkı.
 - **Token (Aşama 2'de, input ile birlikte):** İlk çalıştırmada üretilir ve `~/.config/waydesk/config.toml` dosyasına (0600) yazılır. Eşleştirme için terminalde `…/#token=…` URL'si ve QR kodu basılır. İstemci token'ı localStorage'da saklar ve WS `hello` mesajında gönderir; sunucu sabit zamanlı karşılaştırır.
-- **Oturum yaşam döngüsü:** Mümkünse ilk istemci bağlanınca oturum kurulur, son istemci ayrıldıktan ~30 sn sonra kapatılır. Böylece boştayken GPU/CPU harcanmaz ve GNOME'un "ekran paylaşılıyor" göstergesi sürekli yanmaz. Bunun ön koşulu sessiz geri yüklemedir (Mutter ya da restore'lu portal). Diyaloglu portalda oturum açık tutulur.
+- **Oturum yaşam döngüsü:** Aşama 1'de Mutter oturumu sunucu açılınca kurulur, yakalama hattı ise yalnız izleyen varken çalışır (son istemciden 5 sn sonra durur). Hedef (Aşama 5): ilk istemci bağlanınca oturum kurulur, son istemci ayrıldıktan ~30 sn sonra kapatılır. Böylece boştayken GPU/CPU harcanmaz ve GNOME'un "ekran paylaşılıyor" göstergesi sürekli yanmaz. Bunun ön koşulu sessiz geri yüklemedir (Mutter ya da restore'lu portal). Diyaloglu portalda oturum açık tutulur.
 - **systemd user service:** `graphical-session.target`'a bağlıdır, oturum kapanınca durur. PC'de **kullanıcı oturumu açık olmalı**; ekran kilitli olması sorun değil. Yeniden başlatma sonrası uzaktan erişim için GDM otomatik giriş + ekran kilidi önerilir.
 
 ## 3. Yön kararları — açık karşılaştırma
