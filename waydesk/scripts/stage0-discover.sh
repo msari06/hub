@@ -7,11 +7,11 @@
 # birkaç saniyelik NVENC deneme kodlamasıdır (videotestsrc → fakesink).
 #
 # GNOME oturumundaki bir terminalden çalıştır (SSH'tan değil, root olarak değil):
-#   bash waydesk/scripts/stage0-discover.sh                  # → ./waydesk-stage0.txt
+#   bash waydesk/scripts/stage0-discover.sh                  # → ~/waydesk-stage0.txt
 #   bash waydesk/scripts/stage0-discover.sh /yol/rapor.txt
 set -u
 
-OUT="${1:-./waydesk-stage0.txt}"
+OUT="${1:-$HOME/waydesk-stage0.txt}"
 DBUS_TIMEOUT=8
 GST_TIMEOUT=30
 

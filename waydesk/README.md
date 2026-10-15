@@ -38,7 +38,7 @@ Mimari ve yön kararları: [docs/PLAN.md](docs/PLAN.md)
    bash waydesk/scripts/stage0-discover.sh
    ```
 3. Çalışma 30–60 sn sürer (GStreamer ilk taramada CUDA'yı yükler). Sonunda `ÖZET` bölümü ve önerilen backend yazılır.
-4. Oluşan `./waydesk-stage0.txt` dosyasının içeriğini paylaş. IP ve tailnet adlarını istersen maskeleyebilirsin.
+4. Rapor, script nereden çalıştırılırsa çalıştırılsın `~/waydesk-stage0.txt` dosyasına yazılır. `cat ~/waydesk-stage0.txt` çıktısını paylaş. IP ve tailnet adlarını istersen maskeleyebilirsin.
 
 Rapordan sonra kurulacak paket listesini önereceğim; **onayın olmadan hiçbir şey kurulmayacak**.
 
