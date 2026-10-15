@@ -8,7 +8,7 @@ için kişisel bir uzak masaüstü. Ses kapsam dışı.
 | Konu | Karar |
 |---|---|
 | Telefon | Android (Chrome) |
-| Capture + input backend sırası | Portal (RemoteDesktop restore_token destekliyse) → **Mutter doğrudan API** → uinput. ydotool kullanılmayacak. |
+| Capture + input backend'i | **Mutter doğrudan API birincil** *(Aşama 0 sonrası öneri, onay bekliyor)*. Portal kodu şimdilik yazılmıyor; uinput son çare. ydotool kullanılmayacak. |
 | Token doğrulaması | Aşama 2'de, input ile birlikte |
 | Aşama 4 taşıması | Aşama 4'te ölçerek karar: önce WebCodecs + WS, gerekirse webrtcbin |
 | Monitör yönü | Üç monitör de yatay kullanılıyor; yatay kilit her zaman geçerli (Aşama 6) |
@@ -54,10 +54,12 @@ keysym(sym, pressed)
 | **MutterBackend** (onaylı fallback) | `org.gnome.Mutter.RemoteDesktop` + `org.gnome.Mutter.ScreenCast`: aynı Notify* metodları, `RecordMonitor(connector)` ile monitör başına stream | **Hiç yok** | gnome-remote-desktop'ın kullandığı, portal-gnome'un da arkada çağırdığı API. Mutter kaynağında çağıranı kısıtlayan bir allow-list yok (oturum veri yoluna erişen her kullanıcı süreci kullanabiliyor). GNOME'a özel, "private" API. |
 | UinputBackend (son çare) | python-evdev ile sanal mutlak işaretçi + klavye; video için yalnız ScreenCast portalı | ScreenCast için bir kez | `/dev/uinput` izni (udev kuralı) gerekir; çok monitörde mutlak konum için yerleşim hesabı; keycode tabanlı → Türkçe karakterler için düzen eşlemesi. ydotool'dan iyidir ama yine de en zayıf seçenek. |
 
-**Pop!_OS uyarısı:** Pop!_OS 22.04, GNOME 42 ve xdg-desktop-portal-gnome 42 ile geliyor.
-RemoteDesktop oturumunu geri yükleme (restore) desteği xdg-desktop-portal-gnome **45**'te geldi.
-22.04'teysen portal yolu **her oturum kuruluşunda izin diyaloğu gösterir**. Aşama 0 bunu kesinleştirir.
-Bu durumda MutterBackend kullanılır.
+**Aşama 0 bulgusu:** Sistem Pop!_OS 24.04 üzerinde GNOME 46 (Mutter 46.2). **xdg-desktop-portal-gnome kurulu değil**;
+kurulu portal backend'leri yalnız cosmic, gtk ve gnome-keyring. Bu yüzden GNOME oturumunda ScreenCast/RemoteDesktop
+portalı hiç yok. Ubuntu 24.04 deposundaki xdg-desktop-portal-gnome 46.2 kurulursa portal, izni hatırlayarak
+çalışırdı (restore 45'te geldi). Ama Mutter API'si bugün kurulum gerektirmeden çalışıyor (RemoteDesktop v1,
+ScreenCast v4) ve hiç diyalog göstermiyor. Bu nedenle **MutterBackend birincil**. PortalBackend arayüzde yer tutuyor
+ama Mutter yolunda bir engel çıkmadıkça yazılmayacak.
 
 ### 2.2 Medya hattı (GStreamer, monitör başına)
 
@@ -72,12 +74,16 @@ pipewiresrc fd=<fd> path=<node> always-copy=true
 
 **Aşama 4 (NVENC H.264):**
 ```
-pipewiresrc … ! [cudaupload ! cudaconvert | videoconvert]
+pipewiresrc … ! [BGRx'i BGRA olarak etiketle | videoconvert → NV12]
   ! nvh264enc preset=low-latency-hq rc-mode=cbr bitrate=<…> zerolatency=true bframes=0 gop-size=-1
   ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream,alignment=au
   ! appsink drop=true max-buffers=1 sync=false
 ```
 Bağlanınca ve monitör değişince `force-key-unit` ile anında IDR.
+
+Aşama 0'a göre: `nvh264enc` BGRx kabul etmiyor ama BGRA kabul ediyor (renk dönüşümü NVENC'in içinde, GPU'da).
+`cudaconvert` yok (NVRTC gerektiriyor). Önce BGRx'i BGRA olarak etiketleyip CPU dönüşümünden kaçınmayı deneyeceğiz;
+olmazsa `videoconvert → NV12`.
 
 - **Kare hızı:** 60 fps ile sınırlı. 165/210 Hz telefonda fark yaratmaz, bant genişliğini harcar.
 - **Akış kontrolü:** Telefon her kareyi çizince `ack` gönderir. Havada en fazla 2 kare olur, fazlası sunucuda düşürülür. Böylece yavaş ağda gecikme birikmez, kare atlanır.
@@ -193,6 +199,9 @@ Her aşamanın adım adım test talimatı o aşamanın teslimiyle birlikte READM
 ## 5. Riskler / bilinen sorunlar (ilk tahmin, aşamalarda güncellenecek)
 
 - **NVIDIA + Mutter screencast:** DMA-BUF yolunda siyah/bozuk kare raporları var. Başlangıçta SHM yolu (`always-copy=true`) kullanılacak. 1440p@60'ta CPU kopyası birkaç ms ekler, hedef için kabul edilebilir.
+- **Hibrit grafik (laptop, i7-13700HX + RTX 4060 Laptop):** Raporda `nvidia_drm` modeset okunamadı. Ekranları muhtemelen Intel iGPU sürüyor, NVIDIA yalnız CUDA/NVENC için kullanılıyor. NVENC deneme kodlaması başarılı. Screencast'in hangi GPU'da oluştuğu Aşama 4'te kopya maliyetini etkiler.
+- **Kesirli ölçek (eDP-1, ×1.50235):** Stream fiziksel piksel boyutunda gelir. Normalize koordinat kullanıldığı için input eşlemesi etkilenmez.
+- **Ekran kilidi 5 dk sonra devreye giriyor, GDM otomatik giriş kapalı:** Kilit ekranında uzaktan şifre yazılabilmesi Aşama 2'de doğrulanacak. Yeniden başlatma sonrası uzaktan erişim için otomatik giriş gerekir (Aşama 5).
 - **Portal diyaloğunda çoklu monitör seçimi:** GNOME diyaloğunun `multiple=true` ile 3 monitörü birden seçtirdiği Aşama 3'te doğrulanacak. Olmazsa MutterBackend.
 - **Android Chrome:** Fullscreen API ve `screen.orientation.lock` mevcut. Ancak kilit yalnız tam ekranda veya kurulu PWA'da çalışır. Gboard `keydown`'da `keyCode 229` gönderir; yakalama `beforeinput` tabanlı yapılır (§2.4).
 - **Ekranlar kapalıysa (DPMS):** İlk dokunuş ekranları uyandırır, bir an siyah kare görülebilir.

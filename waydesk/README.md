@@ -1,7 +1,7 @@
 # waydesk
 
 Telefondan (tarayıcı/PWA) GNOME Wayland PC'yi görüntüleme ve kontrol etme. Kişisel kullanım.
-Hedef ortam: Pop!_OS + GNOME Wayland, NVIDIA RTX 4060, 3 monitör; uzaktan erişim Tailscale ile.
+Hedef ortam: Pop!_OS 24.04 + GNOME 46 Wayland, laptop (i7-13700HX, RTX 4060 Laptop), 3 monitör; uzaktan erişim Tailscale ile.
 
 Mimari ve yön kararları: [docs/PLAN.md](docs/PLAN.md)
 
@@ -9,8 +9,8 @@ Mimari ve yön kararları: [docs/PLAN.md](docs/PLAN.md)
 
 | Aşama | Konu | Durum |
 |---|---|---|
-| 0 | Ortam keşfi | **script hazır, rapor bekleniyor** |
-| 1 | Tek monitör, JPEG → WebSocket → canvas | plan onaylandı, Aşama 0 raporu bekleniyor |
+| 0 | Ortam keşfi | **tamamlandı**; paket kurulumu onay bekliyor |
+| 1 | Tek monitör, JPEG → WebSocket → canvas | kurulum onayından sonra başlayacak |
 | 2 | Input (mouse, tık, scroll, klavye) + token | — |
 | 3 | 3 monitör, 1/2/3 geçişi | — |
 | 4 | NVENC H.264 + düşük gecikmeli taşıma | — |
@@ -41,6 +41,19 @@ Mimari ve yön kararları: [docs/PLAN.md](docs/PLAN.md)
 4. Rapor, script nereden çalıştırılırsa çalıştırılsın `~/waydesk-stage0.txt` dosyasına yazılır. `cat ~/waydesk-stage0.txt` çıktısını paylaş. IP ve tailnet adlarını istersen maskeleyebilirsin.
 
 Rapordan sonra kurulacak paket listesini önereceğim; **onayın olmadan hiçbir şey kurulmayacak**.
+
+### Aşama 0 sonuçları
+
+| Konu | Bulgu |
+|---|---|
+| Oturum | Pop!_OS 24.04, GNOME Shell 46.0 / Mutter 46.2, Wayland |
+| Monitörler (soldan sağa = 1/2/3) | 1: DP-1 1920×1080@144 · 2: eDP-1 (dahili) 2560×1600@165, ölçek ×1.5 · 3: HDMI-1 2560×1440@144; hepsi yatay |
+| Portal | xdg-desktop-portal 1.18.4 var, **xdg-desktop-portal-gnome yok**: ScreenCast/RemoteDesktop portalı hiç yok |
+| Mutter doğrudan API | ✓ RemoteDesktop v1 (klavye, işaretçi, dokunmatik), ScreenCast v4 → **birincil backend olarak öneriliyor** |
+| GStreamer 1.24.2 | pipewiresrc ✓, jpegenc ✓, nvh264enc / nvcudah264enc ✓ (NV12 ve BGRA girişi; BGRx yok), cudaconvert yok, webrtcbin ✓ ama libnice yok |
+| NVIDIA | sürücü 580.82.09 (open), libnvidia-encode ✓, NVENC deneme kodlaması ✓ |
+| Python 3.12 | python3-gi 3.48 + Gst ✓; GstApp/GstVideo typelib'leri, aiohttp, dbus-next eksik |
+| Ağ | Wi-Fi (wlp0s20f3); Tailscale kurulu değil |
 
 ## Kurulum / çalıştırma
 

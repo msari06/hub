@@ -27,7 +27,7 @@ summary() { SUM_S+=("$1"); SUM_K+=("$2"); SUM_D+=("$3"); }
 
 pkgver() {  # paket → sürüm | YOK
   local v
-  v=$(dpkg-query -W -f='${db:Status-Abbrev}|${Version}' "$1" 2>/dev/null)
+  v=$(dpkg-query -W -f='${db:Status-Abbrev}|${Version}\n' "$1" 2>/dev/null | head -1)
   [[ $v == ii* ]] && echo "${v#*|}" || echo "YOK"
 }
 
@@ -66,7 +66,7 @@ gst_props() {  # element prop... → var olan özellikler
 gst_sink_formats() {
   timeout "$GST_TIMEOUT" gst-inspect-1.0 "$1" 2>/dev/null \
     | awk '/SINK template/{f=1} /SRC template/{f=0} f && /format:/' \
-    | sed 's/^[[:space:]]*/    /' | head -4
+    | sed 's/^[[:space:]]*/    /' | awk '!seen[$0]++' | head -4
 }
 
 gst_try() {  # "pipeline" → ✓ | ✗ (hata özeti)
@@ -144,8 +144,23 @@ main() {
   else
     kv "nvidia-smi" "YOK"
   fi
+  kv "nvidia_drm modülü" "$([ -d /sys/module/nvidia_drm ] && echo yüklü || echo 'yüklü değil')"
   kv "nvidia_drm modeset" "$(cat /sys/module/nvidia_drm/parameters/modeset 2>/dev/null || echo '-')"
-  kv "nvidia_drm fbdev" "$(cat /sys/module/nvidia_drm/parameters/fbdev 2>/dev/null || echo '-')"
+  if have system76-power; then
+    kv "system76-power graphics" "$(timeout 5 system76-power graphics 2>/dev/null || echo '-')"
+  fi
+  local card drv c cname conns
+  for card in /sys/class/drm/card[0-9]; do
+    [ -e "$card/device/driver" ] || continue
+    drv=$(basename "$(readlink -f "$card/device/driver")")
+    conns=()
+    for c in "$card"-*; do
+      [ "$(cat "$c/status" 2>/dev/null)" = "connected" ] || continue
+      cname=${c##*/}
+      conns+=("${cname#"${card##*/}"-}")
+    done
+    kv "${card##*/} ($drv) bağlı ekranlar" "${conns[*]:-yok}"
+  done
   kv "libnvidia-encode.so.1" "$(ldconfig -p 2>/dev/null | grep -m1 -o '/[^ ]*libnvidia-encode.so.1$' || echo YOK)"
   kv "libcuda.so.1" "$(ldconfig -p 2>/dev/null | grep -m1 -o '/[^ ]*libcuda.so.1$' || echo YOK)"
 
@@ -162,7 +177,7 @@ main() {
     kv "$p" "$(pkgver "$p")"
   done
   dpkg-query -W -f='${db:Status-Abbrev}|${Package} ${Version}\n' 'libnvidia-encode*' 'nvidia-driver-*' 2>/dev/null \
-    | awk -F'|' '$1 ~ /^ii/ {print "  " $2}'
+    | awk -F'|' '$1 ~ /^ii/ {print "  " $2}' | sort -u
   local xdp_ver xdpg_ver
   xdp_ver=$(pkgver xdg-desktop-portal)
   xdpg_ver=$(pkgver xdg-desktop-portal-gnome)
@@ -239,7 +254,7 @@ main() {
   if isnum "$sc_front" && (( sc_front >= 4 )); then
     summary "✓" "Portal ScreenCast restore_token" "frontend v${sc_front}, backend v${sc_back:-?}"
   else
-    summary "✗" "Portal ScreenCast restore_token" "frontend v${sc_front:-YOK}"
+    summary "✗" "Portal ScreenCast restore_token" "frontend v${sc_front:-YOK}$([ "$xdpg_ver" = "YOK" ] && echo ' (xdg-desktop-portal-gnome kurulu değil)')"
   fi
   local rd_persist="?"
   if isnum "$rd_front" && isnum "$rd_back" && (( rd_front >= 2 && rd_back >= 2 )); then
@@ -253,7 +268,11 @@ main() {
   fi
   case $rd_persist in
     ✓) summary "✓" "Portal RemoteDesktop restore_token" "frontend v${rd_front}, backend v${rd_back}: izin diyaloğu bir kez çıkar" ;;
-    ✗) summary "✗" "Portal RemoteDesktop restore_token" "frontend v${rd_front:-YOK}, backend v${rd_back:-YOK}, xdp-gnome ${xdpg_ver}: DESTEKLENMİYOR → her oturum kuruluşunda izin diyaloğu" ;;
+    ✗) if [ "$xdpg_ver" = "YOK" ] && [ -z "$rd_front" ]; then
+         summary "✗" "Portal RemoteDesktop restore_token" "GNOME portal backend'i (xdg-desktop-portal-gnome) kurulu değil → ScreenCast/RemoteDesktop portalı hiç yok"
+       else
+         summary "✗" "Portal RemoteDesktop restore_token" "frontend v${rd_front:-YOK}, backend v${rd_back:-YOK}, xdp-gnome ${xdpg_ver}: DESTEKLENMİYOR → her oturum kuruluşunda izin diyaloğu"
+       fi ;;
     *) summary "?" "Portal RemoteDesktop restore_token" "frontend v${rd_front:-?}, backend v${rd_back:-?}: belirsiz" ;;
   esac
   if [ -n "$m_rd" ] && [ -n "$m_sc" ]; then
@@ -408,6 +427,11 @@ PY
   else
     summary "✗" "Python + GStreamer gi" "python3-gi / gir1.2-gstreamer-1.0 eksik"
   fi
+  if grep -qE '^  gi GstApp +✓' <<<"$py_out" && grep -qE '^  gi GstVideo +✓' <<<"$py_out"; then
+    summary "✓" "gi GstApp + GstVideo" "gir1.2-gst-plugins-base-1.0"
+  else
+    summary "✗" "gi GstApp + GstVideo" "gir1.2-gst-plugins-base-1.0 eksik"
+  fi
   local dn
   dn=$(sed -n 's/^  dbus_next *//p' <<<"$py_out")
   summary "$([ -n "$dn" ] && [ "$dn" != "YOK" ] && echo ✓ || echo ✗)" "dbus-next" "${dn:-?}"
@@ -460,11 +484,10 @@ PY
 
   echo
   echo "  Önerilen capture+input backend'i:"
-  if [ "$rd_persist" = "✓" ]; then
+  if [ -n "$m_rd" ] && [ -n "$m_sc" ]; then
+    echo "    → MUTTER doğrudan API: kurulum ve izin diyaloğu gerektirmez, monitörü connector adıyla seçer."
+  elif [ "$rd_persist" = "✓" ]; then
     echo "    → PORTAL (RemoteDesktop+ScreenCast, persist_mode=2). İzin diyaloğu yalnız ilk seferde."
-  elif [ -n "$m_rd" ] && [ -n "$m_sc" ]; then
-    echo "    → MUTTER doğrudan API. Portal'daki RemoteDesktop restore_token bu sistemde desteklenmiyor;"
-    echo "      portal ile her oturum kuruluşunda izin diyaloğu çıkar. Mutter API'si diyalogsuz çalışır."
   else
     echo "    → Portal (diyaloglu) + uinput fallback. Ayrıntı için raporu paylaş."
   fi
