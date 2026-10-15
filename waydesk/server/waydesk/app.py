@@ -8,6 +8,7 @@ Böylece yavaş ağda gecikme birikmez, kare atlanır.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import signal
@@ -72,9 +73,10 @@ class Client:
         self.pending = frame
         self.wake.set()
 
-    def ack(self, seq: int, drawn: bool) -> None:
+    def ack(self, seq: int) -> None:
+        """İstemci kareyi aldı (henüz çizmedi); gecikme = gönderim → alım onayı."""
         sent_at = self.inflight.pop(seq, None)
-        if sent_at is not None and drawn:
+        if sent_at is not None:
             self.latencies.append((time.monotonic() - sent_at) * 1000)
         self.wake.set()
 
@@ -130,6 +132,7 @@ class Server:
         self._idle_handle: asyncio.TimerHandle | None = None
         self._capture_lock = asyncio.Lock()
         self._tasks: set[asyncio.Task] = set()
+        self.client_build = _client_build()
 
     # ---- yaşam döngüsü ----------------------------------------------------------
 
@@ -334,7 +337,7 @@ class Server:
         if kind == "ack":
             seq = msg.get("seq")
             if isinstance(seq, int):
-                client.ack(seq, bool(msg.get("d", 1)))
+                client.ack(seq)
         elif kind == "hello":
             pass
         else:
@@ -348,6 +351,7 @@ class Server:
             "monitors": [m.as_dict() for m in self.monitors],
             "active": self.active.index if self.active else None,
             "state": "ok" if self._source_ready() else "starting",
+            "build": self.client_build,
         }
 
     def _broadcast(self, message: dict) -> None:
@@ -426,6 +430,16 @@ async def _no_cache(request: web.Request, handler):
     if request.path != "/ws":
         response.headers["Cache-Control"] = "no-store"
     return response
+
+
+def _client_build() -> str:
+    """İstemci dosyalarının özeti. Değişirse açık sayfalar kendini yeniler."""
+    digest = hashlib.sha1()
+    for path in sorted(CLIENT_DIR.rglob("*")):
+        if path.is_file():
+            digest.update(path.name.encode())
+            digest.update(path.read_bytes())
+    return digest.hexdigest()[:12]
 
 
 def _primary_ip() -> str | None:

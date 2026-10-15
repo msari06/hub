@@ -1,8 +1,9 @@
 // waydesk istemcisi — Aşama 1: görüntü.
 //
 // Sunucudan gelen binary kareler (12 baytlık başlık + JPEG) canvas'a çizilir.
-// Her kare çizilince (ya da daha yenisi geldiği için atlanınca) "ack" yollanır;
-// sunucu ack'lere göre havadaki kare sayısını sınırlar, gecikme birikmez.
+// Her kare ALINIR ALINMAZ "ack" yollanır: sunucu ack'lere göre havadaki kare sayısını
+// sınırlar (ağda gecikme birikmez), çözme ise bir sonraki karenin aktarımıyla paralel
+// yürür. Çözücü yetişemezse yalnız en yeni kare çizilir, aradakiler atlanır.
 
 const HEADER_BYTES = 12;
 const KIND_JPEG = 1;
@@ -17,7 +18,10 @@ let retries = 0;
 let queued = null; // çizilmeyi bekleyen en yeni kare
 let drawing = false;
 let decodeMs = [];
+let drawnFrames = 0;
+let lastHudAt = performance.now();
 let serverStats = null;
+let build = null; // sunucunun istemci dosyaları özeti; değişirse sayfa yenilenir
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -54,6 +58,11 @@ function send(message) {
 function onMessage(msg) {
   switch (msg.t) {
     case 'hello':
+      if (build && msg.build && msg.build !== build) {
+        location.reload(); // sunucu yeni istemci koduyla yeniden başladı
+        return;
+      }
+      build = msg.build;
       if (msg.state !== 'ok') setStatus('Sunucu ekran oturumunu başlatıyor…');
       break;
     case 'status':
@@ -73,12 +82,9 @@ function onFrame(buffer) {
   const view = new DataView(buffer);
   const kind = view.getUint8(0);
   const seq = view.getUint32(4);
-  if (kind !== KIND_JPEG) {
-    send({ t: 'ack', seq, d: 0 });
-    return;
-  }
-  if (queued) send({ t: 'ack', seq: queued.seq, d: 0 }); // daha yenisi geldi, atla
-  queued = { seq, data: new Uint8Array(buffer, HEADER_BYTES) };
+  send({ t: 'ack', seq });
+  if (kind !== KIND_JPEG) return;
+  queued = { seq, data: new Uint8Array(buffer, HEADER_BYTES) }; // varsa eskisi atlanır
   if (!drawing) drain();
 }
 
@@ -97,11 +103,10 @@ async function drain() {
       ctx.drawImage(bitmap, 0, 0);
       bitmap.close();
       decodeMs.push(performance.now() - started);
+      drawnFrames++;
       if (statusEl.textContent) setStatus('');
-      send({ t: 'ack', seq: frame.seq, d: 1 });
     } catch (err) {
       console.warn('kare çözülemedi', err);
-      send({ t: 'ack', seq: frame.seq, d: 0 });
     }
   }
   drawing = false;
@@ -117,13 +122,17 @@ function renderHud() {
   const s = serverStats;
   const dec = median(decodeMs);
   decodeMs = [];
+  const now = performance.now();
+  const drawnFps = (drawnFrames * 1000) / (now - lastHudAt);
+  drawnFrames = 0;
+  lastHudAt = now;
   const fmt = (v, unit) => (v === null || v === undefined ? '–' : `${Math.round(v)}${unit}`);
   const size = s.size ? `${s.size[0]}×${s.size[1]}` : '–';
   const mbit = typeof s.kbps === 'number' ? `${(s.kbps / 1000).toFixed(1)} Mbit/s` : '–';
   const num = (v) => (v === null || v === undefined ? '–' : v);
   hud.textContent =
-    `${s.fps} fps  ${size}  ${mbit}\n` +
-    `kodlama ${fmt(s.enc, ' ms')}  çözme ${fmt(dec, ' ms')}  ağ+çizim ${fmt(s.lat, ' ms')}\n` +
+    `${s.fps} fps (çizilen ${drawnFps.toFixed(1)})  ${size}  ${mbit}\n` +
+    `kodlama ${fmt(s.enc, ' ms')}  ağ ${fmt(s.lat, ' ms')}  çözme ${fmt(dec, ' ms')}\n` +
     `kaynak ${num(s.src)}  prob −${num(s.drop)}  kodlanan ${num(s.encfps)}  ` +
     `atlanan ${num(s.skip)}  kare ${fmt(s.kb, ' KB')}`;
   hud.hidden = false;

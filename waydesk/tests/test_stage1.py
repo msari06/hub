@@ -152,7 +152,7 @@ class FlowControlTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(ws.sent), MAX_INFLIGHT)
         self.assertEqual(client.pending.seq, 5)  # aradaki kareler atlandı
 
-        client.ack(ws.sent[0][0], drawn=True)
+        client.ack(ws.sent[0][0])
         await asyncio.sleep(0.05)
         self.assertEqual([d[0] for d in ws.sent], [1, 2, 5])
         self.assertIsNone(client.pending)

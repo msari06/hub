@@ -89,23 +89,28 @@ Telefondaki sol üst gösterge:
 
 | Alan | Anlamı |
 |---|---|
-| `fps` | Telefona gönderilen kare/sn. Ekran duruyorsa düşer; bu normal. |
+| `fps` (`çizilen`) | Telefona gönderilen kare/sn; parantezde telefonun çizebildiği. Ekran duruyorsa düşer; bu normal. |
 | `kodlama` | Kare yakalandıktan JPEG'i hazır olana kadar geçen süre (PC). |
-| `çözme` | Telefonun JPEG'i çözüp çizme süresi. |
-| `ağ+çizim` | Kare gönderildikten telefonun "çizdim" yanıtı gelene kadar (Wi-Fi gidiş-dönüş + çözme + çizim). |
+| `ağ` | Kare gönderildikten telefonun "aldım" yanıtı gelene kadar (karenin Wi-Fi'da aktarımı + gidiş-dönüş). |
+| `çözme` | Telefonun JPEG'i çözüp çizme süresi; bir sonraki karenin aktarımıyla paralel yürür. |
 | `kaynak` | Mutter'dan gelen kare/sn (ekran değiştikçe artar, üst sınır `--fps`). |
 | `prob −` | Emniyet probunun attığı kare/sn; normalde 0. |
 | `kodlanan` | JPEG'e çevrilen kare/sn. |
 | `atlanan` | Ağ veya telefon yetişemediği için gönderilmeden atlanan kare/sn. |
 | `kare` | Ortalama kare boyutu (KB). |
 
-Kabaca ekrandan ekrana gecikme ≈ `kodlama` + `ağ+çizim` + en fazla bir kare süresi (30 fps'te 33 ms).
+Kabaca ekrandan ekrana gecikme ≈ `kodlama` + `ağ` + `çözme` + en fazla bir kare süresi (30 fps'te 33 ms).
+`ağ` gidiş-dönüş olduğu için bu toplam gerçeğin biraz üstündedir.
+
+İstemci dosyaları değişmişse, sunucu yeniden başlayınca açık sayfa kendini yeniler.
 
 **fps düşükse darboğazı okuma** (ekran sürekli değişirken, ör. aşağıdaki animasyon penceresi açıkken):
 
 - `kaynak` düşük (≪ 30) → Mutter az kare üretiyor; sorun yakalama tarafında.
 - `kaynak` ≈ 30 ama `prob −` > 0 → emniyet probu kare atıyor (bildir).
-- `kaynak` ≈ `kodlanan` ≈ 30 ama `fps` düşük ve `atlanan` yüksek → Wi-Fi ya da telefon yetişemiyor.
+- `kaynak` ≈ `kodlanan` ≈ 30 ama `fps` düşük ve `atlanan` yüksek → Wi-Fi yetişemiyor
+  (havada en fazla 2 kare: tavan ≈ 2000 / `ağ` fps).
+- `fps` yüksek ama `çizilen` düşük → telefon JPEG çözmeye yetişemiyor.
   `kare` büyükse `--quality 40 --max-width 1280` ile dene; Aşama 4'teki H.264 kareleri ~10 kat küçültecek.
 
 Sürekli değişen bir ekran için PC'de şu pencereyi aç ve telefonda o monitörü izle:
