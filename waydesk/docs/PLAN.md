@@ -3,6 +3,17 @@
 Telefondaki bir PWA'dan, GNOME Wayland üzerinde çalışan PC'yi görüntüleyip kontrol etmek
 için kişisel bir uzak masaüstü. Ses kapsam dışı.
 
+## 0. Alınan kararlar
+
+| Konu | Karar |
+|---|---|
+| Telefon | Android (Chrome) |
+| Capture + input backend sırası | Portal (RemoteDesktop restore_token destekliyse) → **Mutter doğrudan API** → uinput. ydotool kullanılmayacak. |
+| Token doğrulaması | Aşama 2'de, input ile birlikte |
+| Aşama 4 taşıması | Aşama 4'te ölçerek karar: önce WebCodecs + WS, gerekirse webrtcbin |
+| Pivot monitör / yön kilidi | *yanıt bekleniyor.* Varsayılan: kilit aktif monitörün yönünü izler (Aşama 6) |
+| Jest varsayılanları | *yanıt bekleniyor.* Varsayılan: §2.4 tablosu |
+
 ## 1. Genel bakış
 
 ```
@@ -39,14 +50,14 @@ keysym(sym, pressed)
 
 | Backend | Nasıl | İzin diyaloğu | Not |
 |---|---|---|---|
-| **PortalBackend** (senin tercihin) | `org.freedesktop.portal.RemoteDesktop` + `ScreenCast`: CreateSession → SelectDevices(klavye+işaretçi, `persist_mode=2`, `restore_token`) → SelectSources(MONITOR, `multiple=true`, cursor EMBEDDED) → Start → OpenPipeWireRemote (fd) | İlk sefer bir kez, **ancak** RemoteDesktop restore desteği varsa | Birleşik oturumda kalıcılık yalnız `RemoteDesktop.SelectDevices` üzerinden; `ScreenCast` persist seçenekleri bu oturumda kullanılamaz (spec). Token tek kullanımlık; her Start'ta yenisi `~/.config/waydesk/state.json`'a yazılır. |
-| **MutterBackend** (önerdiğim fallback) | `org.gnome.Mutter.RemoteDesktop` + `org.gnome.Mutter.ScreenCast`: aynı Notify* metodları, `RecordMonitor(connector)` ile monitör başına stream | **Hiç yok** | gnome-remote-desktop'ın kullandığı, portal-gnome'un da arkada çağırdığı API. Mutter kaynağında çağıranı kısıtlayan bir allow-list yok (oturum veri yoluna erişen her kullanıcı süreci kullanabiliyor). GNOME'a özel, "private" API. |
+| **PortalBackend** (birincil, restore destekliyse) | `org.freedesktop.portal.RemoteDesktop` + `ScreenCast`: CreateSession → SelectDevices(klavye+işaretçi, `persist_mode=2`, `restore_token`) → SelectSources(MONITOR, `multiple=true`, cursor EMBEDDED) → Start → OpenPipeWireRemote (fd) | İlk sefer bir kez, **ancak** RemoteDesktop restore desteği varsa | Birleşik oturumda kalıcılık yalnız `RemoteDesktop.SelectDevices` üzerinden; `ScreenCast` persist seçenekleri bu oturumda kullanılamaz (spec). Token tek kullanımlık; her Start'ta yenisi `~/.config/waydesk/state.json`'a yazılır. |
+| **MutterBackend** (onaylı fallback) | `org.gnome.Mutter.RemoteDesktop` + `org.gnome.Mutter.ScreenCast`: aynı Notify* metodları, `RecordMonitor(connector)` ile monitör başına stream | **Hiç yok** | gnome-remote-desktop'ın kullandığı, portal-gnome'un da arkada çağırdığı API. Mutter kaynağında çağıranı kısıtlayan bir allow-list yok (oturum veri yoluna erişen her kullanıcı süreci kullanabiliyor). GNOME'a özel, "private" API. |
 | UinputBackend (son çare) | python-evdev ile sanal mutlak işaretçi + klavye; video için yalnız ScreenCast portalı | ScreenCast için bir kez | `/dev/uinput` izni (udev kuralı) gerekir; çok monitörde mutlak konum için yerleşim hesabı; keycode tabanlı → Türkçe karakterler için düzen eşlemesi. ydotool'dan iyidir ama yine de en zayıf seçenek. |
 
 **Pop!_OS uyarısı:** Pop!_OS 22.04, GNOME 42 ve xdg-desktop-portal-gnome 42 ile geliyor.
 RemoteDesktop oturumunu geri yükleme (restore) desteği xdg-desktop-portal-gnome **45**'te geldi.
 22.04'teysen portal yolu **her oturum kuruluşunda izin diyaloğu gösterir**. Aşama 0 bunu kesinleştirir.
-Bu durumda önerim MutterBackend.
+Bu durumda MutterBackend kullanılır.
 
 ### 2.2 Medya hattı (GStreamer, monitör başına)
 
@@ -119,7 +130,7 @@ sınıflandırılır. Sınıflandırma parmaklar kalkana kadar değişmez.
 
 - **Bind:** `127.0.0.1` + Tailscale IP'si (`tailscale ip -4`). tailscaled geç kalkarsa sunucu periyodik olarak tekrar dener.
 - **HTTPS:** Service worker, PWA kurulumu ve WebCodecs güvenli bağlam (HTTPS) ister. Önerim `tailscale serve --bg https:443 http://127.0.0.1:<port>`. Geçerli `*.ts.net` sertifikası sağlar ve otomatik yenilenir. Bu kurulumda sunucu yalnız localhost'u dinler, bu da istenenden daha da sıkı.
-- **Token:** İlk çalıştırmada üretilir ve `~/.config/waydesk/config.toml` dosyasına (0600) yazılır. Eşleştirme için terminalde `…/#token=…` URL'si ve QR kodu basılır. İstemci token'ı localStorage'da saklar ve WS `hello` mesajında gönderir; sunucu sabit zamanlı karşılaştırır.
+- **Token (Aşama 2'de, input ile birlikte):** İlk çalıştırmada üretilir ve `~/.config/waydesk/config.toml` dosyasına (0600) yazılır. Eşleştirme için terminalde `…/#token=…` URL'si ve QR kodu basılır. İstemci token'ı localStorage'da saklar ve WS `hello` mesajında gönderir; sunucu sabit zamanlı karşılaştırır.
 - **Oturum yaşam döngüsü:** Mümkünse ilk istemci bağlanınca oturum kurulur, son istemci ayrıldıktan ~30 sn sonra kapatılır. Böylece boştayken GPU/CPU harcanmaz ve GNOME'un "ekran paylaşılıyor" göstergesi sürekli yanmaz. Bunun ön koşulu sessiz geri yüklemedir (Mutter ya da restore'lu portal). Diyaloglu portalda oturum açık tutulur.
 - **systemd user service:** `graphical-session.target`'a bağlıdır, oturum kapanınca durur. PC'de **kullanıcı oturumu açık olmalı**; ekran kilitli olması sorun değil. Yeniden başlatma sonrası uzaktan erişim için GDM otomatik giriş + ekran kilidi önerilir.
 
@@ -134,7 +145,7 @@ sınıflandırılır. Sınıflandırma parmaklar kalkana kadar değişmez.
   4. Dokunmatik semantiği oyun odaklı.
 - **Karar:** Ana kullanım oyun olsaydı Sunshine + native Moonlight'ı önerirdim. PWA, anlık 1/2/3 geçişi ve dokunmatik masaüstü kontrolü için özel çözüm daha uygun. **Senin yönünde kalıyoruz.**
 
-### 3.2 Fallback: ydotool/uinput yerine Mutter API
+### 3.2 Fallback: ydotool/uinput yerine Mutter API — onaylandı
 - **Senin yönün:** Portal, olmazsa ydotool/uinput.
 - **Önerim:** Portal, olmazsa **Mutter doğrudan API**, en son uinput.
   - Mutter API, portal ile aynı semantiği sunar: stream bazlı mutlak koordinat ve keysym ile metin.
@@ -174,7 +185,7 @@ Not: `dbus-next` 2021'den beri yeni sürüm almıyor ama fd aktarımı dahil ger
 | 2 | Mutlak işaretçi, tık, sağ tık, scroll, klavye (+ token) | Tablodaki jestler ve Türkçe karakterler çalışır |
 | 3 | 3 monitör, 1/2/3 | Geçiş <300 ms, diyalog yok; pasif monitörlerde `nvidia-smi`/`top`'ta yük görünmez |
 | 4 | NVENC H.264 + seçilen taşıma | LAN'da ölçülen gecikme <100 ms |
-| 5 | Tailscale bind, HTTPS, token, systemd user service | Yeniden başlatıp giriş yapınca kendiliğinden ayağa kalkar; LAN IP'sinden erişilemez |
+| 5 | Tailscale bind, HTTPS, systemd user service | Yeniden başlatıp giriş yapınca kendiliğinden ayağa kalkar; LAN IP'sinden erişilemez |
 | 6 | PWA cilası | Ana ekrana eklenir, tam ekran açılır, bağlantı koparsa kendisi bağlanır |
 
 Her aşamanın adım adım test talimatı o aşamanın teslimiyle birlikte README'ye eklenir.
@@ -183,7 +194,7 @@ Her aşamanın adım adım test talimatı o aşamanın teslimiyle birlikte READM
 
 - **NVIDIA + Mutter screencast:** DMA-BUF yolunda siyah/bozuk kare raporları var. Başlangıçta SHM yolu (`always-copy=true`) kullanılacak. 1440p@60'ta CPU kopyası birkaç ms ekler, hedef için kabul edilebilir.
 - **Portal diyaloğunda çoklu monitör seçimi:** GNOME diyaloğunun `multiple=true` ile 3 monitörü birden seçtirdiği Aşama 3'te doğrulanacak. Olmazsa MutterBackend.
-- **iPhone ise:** iOS Safari'de Fullscreen API ve `screen.orientation.lock` yok. PWA'nın "standalone" modu kullanılır, landscape kilidi uygulanamaz.
+- **Android Chrome:** Fullscreen API ve `screen.orientation.lock` mevcut. Ancak kilit yalnız tam ekranda veya kurulu PWA'da çalışır. Gboard `keydown`'da `keyCode 229` gönderir; yakalama `beforeinput` tabanlı yapılır (§2.4).
 - **Pivot monitör (dikey 1440×2560) ve landscape kilidi çakışıyor.** Öneri: kilit aktif monitörün yönüne göre değişsin.
 - **Ekranlar kapalıysa (DPMS):** İlk dokunuş ekranları uyandırır, bir an siyah kare görülebilir.
 - **Giriş ekranı (GDM) uzaktan kullanılamaz.** Kullanıcı oturumu açık olmalı.

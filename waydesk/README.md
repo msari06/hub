@@ -10,11 +10,11 @@ Mimari ve yön kararları: [docs/PLAN.md](docs/PLAN.md)
 | Aşama | Konu | Durum |
 |---|---|---|
 | 0 | Ortam keşfi | **script hazır, rapor bekleniyor** |
-| 1 | Tek monitör, JPEG → WebSocket → canvas | plan onayı bekleniyor |
-| 2 | Input (mouse, tık, scroll, klavye) | — |
+| 1 | Tek monitör, JPEG → WebSocket → canvas | plan onaylandı, Aşama 0 raporu bekleniyor |
+| 2 | Input (mouse, tık, scroll, klavye) + token | — |
 | 3 | 3 monitör, 1/2/3 geçişi | — |
 | 4 | NVENC H.264 + düşük gecikmeli taşıma | — |
-| 5 | Tailscale bind, token, systemd | — |
+| 5 | Tailscale bind, HTTPS, systemd | — |
 | 6 | PWA cilası | — |
 
 ## Aşama 0 — ortam keşfi
