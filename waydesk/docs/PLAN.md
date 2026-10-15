@@ -11,8 +11,8 @@ için kişisel bir uzak masaüstü. Ses kapsam dışı.
 | Capture + input backend sırası | Portal (RemoteDesktop restore_token destekliyse) → **Mutter doğrudan API** → uinput. ydotool kullanılmayacak. |
 | Token doğrulaması | Aşama 2'de, input ile birlikte |
 | Aşama 4 taşıması | Aşama 4'te ölçerek karar: önce WebCodecs + WS, gerekirse webrtcbin |
-| Pivot monitör / yön kilidi | *yanıt bekleniyor.* Varsayılan: kilit aktif monitörün yönünü izler (Aşama 6) |
-| Jest varsayılanları | *yanıt bekleniyor.* Varsayılan: §2.4 tablosu |
+| Monitör yönü | Üç monitör de yatay kullanılıyor; yatay kilit her zaman geçerli (Aşama 6) |
+| Jestler | §2.4 tablosu onaylandı |
 
 ## 1. Genel bakış
 
@@ -100,7 +100,7 @@ Sunucu → istemci, binary:
 {"t":"txt","s":"merhaba ğüş"}      {"t":"key","k":"Control_L","d":1}
 {"t":"ack","seq":123,"ts":…}
 ```
-Normalize koordinat kullanmak ölçek, kesirli ölçekleme ve pivot farklarını sunucu tarafına bırakır:
+Normalize koordinat kullanmak ölçek ve kesirli ölçekleme farklarını sunucu tarafına bırakır:
 `x * stream_genişliği`.
 
 ### 2.4 İstemci (PWA)
@@ -195,6 +195,5 @@ Her aşamanın adım adım test talimatı o aşamanın teslimiyle birlikte READM
 - **NVIDIA + Mutter screencast:** DMA-BUF yolunda siyah/bozuk kare raporları var. Başlangıçta SHM yolu (`always-copy=true`) kullanılacak. 1440p@60'ta CPU kopyası birkaç ms ekler, hedef için kabul edilebilir.
 - **Portal diyaloğunda çoklu monitör seçimi:** GNOME diyaloğunun `multiple=true` ile 3 monitörü birden seçtirdiği Aşama 3'te doğrulanacak. Olmazsa MutterBackend.
 - **Android Chrome:** Fullscreen API ve `screen.orientation.lock` mevcut. Ancak kilit yalnız tam ekranda veya kurulu PWA'da çalışır. Gboard `keydown`'da `keyCode 229` gönderir; yakalama `beforeinput` tabanlı yapılır (§2.4).
-- **Pivot monitör (dikey 1440×2560) ve landscape kilidi çakışıyor.** Öneri: kilit aktif monitörün yönüne göre değişsin.
 - **Ekranlar kapalıysa (DPMS):** İlk dokunuş ekranları uyandırır, bir an siyah kare görülebilir.
 - **Giriş ekranı (GDM) uzaktan kullanılamaz.** Kullanıcı oturumu açık olmalı.
