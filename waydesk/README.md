@@ -93,8 +93,26 @@ Telefondaki sol üst gösterge:
 | `kodlama` | Kare yakalandıktan JPEG'i hazır olana kadar geçen süre (PC). |
 | `çözme` | Telefonun JPEG'i çözüp çizme süresi. |
 | `ağ+çizim` | Kare gönderildikten telefonun "çizdim" yanıtı gelene kadar (Wi-Fi gidiş-dönüş + çözme + çizim). |
+| `kaynak` | Mutter'dan gelen kare/sn (ekran değiştikçe artar, üst sınır `--fps`). |
+| `prob −` | Emniyet probunun attığı kare/sn; normalde 0. |
+| `kodlanan` | JPEG'e çevrilen kare/sn. |
+| `atlanan` | Ağ veya telefon yetişemediği için gönderilmeden atlanan kare/sn. |
+| `kare` | Ortalama kare boyutu (KB). |
 
 Kabaca ekrandan ekrana gecikme ≈ `kodlama` + `ağ+çizim` + en fazla bir kare süresi (30 fps'te 33 ms).
+
+**fps düşükse darboğazı okuma** (ekran sürekli değişirken, ör. aşağıdaki animasyon penceresi açıkken):
+
+- `kaynak` düşük (≪ 30) → Mutter az kare üretiyor; sorun yakalama tarafında.
+- `kaynak` ≈ 30 ama `prob −` > 0 → emniyet probu kare atıyor (bildir).
+- `kaynak` ≈ `kodlanan` ≈ 30 ama `fps` düşük ve `atlanan` yüksek → Wi-Fi ya da telefon yetişemiyor.
+  `kare` büyükse `--quality 40 --max-width 1280` ile dene; Aşama 4'teki H.264 kareleri ~10 kat küçültecek.
+
+Sürekli değişen bir ekran için PC'de şu pencereyi aç ve telefonda o monitörü izle:
+
+```bash
+gst-launch-1.0 videotestsrc pattern=ball is-live=true ! video/x-raw,width=800,height=600,framerate=60/1 ! autovideosink
+```
 
 ## Aşama 1 — nasıl test edilir
 

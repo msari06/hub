@@ -120,9 +120,12 @@ function renderHud() {
   const fmt = (v, unit) => (v === null || v === undefined ? '–' : `${Math.round(v)}${unit}`);
   const size = s.size ? `${s.size[0]}×${s.size[1]}` : '–';
   const mbit = typeof s.kbps === 'number' ? `${(s.kbps / 1000).toFixed(1)} Mbit/s` : '–';
+  const num = (v) => (v === null || v === undefined ? '–' : v);
   hud.textContent =
     `${s.fps} fps  ${size}  ${mbit}\n` +
-    `kodlama ${fmt(s.enc, ' ms')}  çözme ${fmt(dec, ' ms')}  ağ+çizim ${fmt(s.lat, ' ms')}`;
+    `kodlama ${fmt(s.enc, ' ms')}  çözme ${fmt(dec, ' ms')}  ağ+çizim ${fmt(s.lat, ' ms')}\n` +
+    `kaynak ${num(s.src)}  prob −${num(s.drop)}  kodlanan ${num(s.encfps)}  ` +
+    `atlanan ${num(s.skip)}  kare ${fmt(s.kb, ' KB')}`;
   hud.hidden = false;
 }
 

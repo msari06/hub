@@ -5,7 +5,8 @@
 
 - Kare hızını Mutter sınırlar (max-framerate). Mutter, sınır yüzünden atladığı son
   değişikliği "follow-up" karesiyle sonradan yine gönderir; ekran donuk kalmaz.
-- Pipewiresrc çıkışındaki prob, Mutter sınırı uygulamazsa diye bir emniyet sınırıdır.
+- Pipewiresrc çıkışındaki prob, Mutter sınırı uygulamazsa diye bir emniyet sınırıdır
+  (jeton kovası: ortalamayı fps'te tutar, kısa titremelerde kare atmaz).
 - Sızdıran kuyruk, kodlama yavaşlarsa PipeWire tarafını bekletmeden eski kareyi atar.
 - Hat yalnız izleyen istemci varken PLAYING'dir. NULL'da PipeWire tüketicisi kopar ve
   Mutter o monitör için kare üretmeyi bırakır.
@@ -30,6 +31,9 @@ log = logging.getLogger(__name__)
 
 SOURCE_PIPEWIRE = "pipewire"
 SOURCE_TEST = "test"
+
+PROBE_BURST = 2.0  # jeton kovası kapasitesi (kare)
+PROBE_HEADROOM = 1.15  # kova fps'in biraz üstünde dolar; titreme birikip kare attırmasın
 
 
 @dataclass(frozen=True)
@@ -65,10 +69,14 @@ class JpegCapture:
         self._pipeline: Gst.Pipeline | None = None
         self._bus_task: asyncio.Task | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
-        self._min_interval = 1.0 / (fps * 1.25)
-        self._last_pass = 0.0
-        self.frames = 0
+        self._tokens = PROBE_BURST
+        self._last_probe = time.monotonic()
+        self.frames = 0  # toplam teslim edilen (ilk kare gözcüsü için)
+        # Saniyelik teşhis sayaçları; take_counters() okur ve sıfırlar.
+        self.source_count = 0
         self.dropped_by_probe = 0
+        self.encoded_count = 0
+        self.encoded_bytes = 0
 
     @property
     def running(self) -> bool:
@@ -135,10 +143,13 @@ class JpegCapture:
 
     def _rate_probe(self, _pad, _info):
         now = time.monotonic()
-        if now - self._last_pass < self._min_interval:
+        self.source_count += 1
+        self._tokens = min(PROBE_BURST, self._tokens + (now - self._last_probe) * self._fps * PROBE_HEADROOM)
+        self._last_probe = now
+        if self._tokens < 1.0:
             self.dropped_by_probe += 1
             return Gst.PadProbeReturn.DROP
-        self._last_pass = now
+        self._tokens -= 1.0
         return Gst.PadProbeReturn.OK
 
     def _on_new_sample(self, sink):
@@ -178,7 +189,15 @@ class JpegCapture:
         if self._pipeline is None:
             return  # durdurulduktan sonra gelen geç kare
         self.frames += 1
+        self.encoded_count += 1
+        self.encoded_bytes += len(frame.data)
         self._on_frame(frame)
+
+    def take_counters(self) -> tuple[int, int, int, int]:
+        """(kaynak, probun attığı, kodlanan, kodlanan bayt) — son çağrıdan beri."""
+        counters = (self.source_count, self.dropped_by_probe, self.encoded_count, self.encoded_bytes)
+        self.source_count = self.dropped_by_probe = self.encoded_count = self.encoded_bytes = 0
+        return counters
 
     async def _watch_bus(self) -> None:
         mask = Gst.MessageType.ERROR | Gst.MessageType.WARNING | Gst.MessageType.EOS

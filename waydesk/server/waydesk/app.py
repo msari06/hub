@@ -64,8 +64,11 @@ class Client:
         self.latencies: list[float] = []
         self.sent_frames = 0
         self.sent_bytes = 0
+        self.skipped = 0  # gönderilemeden yenisiyle değiştirilen kareler (ağ/telefon yetişemedi)
 
     def offer(self, frame: Frame) -> None:
+        if self.pending is not None:
+            self.skipped += 1
         self.pending = frame
         self.wake.set()
 
@@ -101,9 +104,12 @@ class Client:
             "fps": round(self.sent_frames / elapsed, 1),
             "kbps": round(self.sent_bytes * 8 / 1000 / elapsed),
             "lat": round(statistics.median(self.latencies)) if self.latencies else None,
+            "skip": round(self.skipped / elapsed, 1),
+            "kb": round(self.sent_bytes / self.sent_frames / 1024) if self.sent_frames else None,
         }
         self.sent_frames = 0
         self.sent_bytes = 0
+        self.skipped = 0
         self.latencies.clear()
         return stats
 
@@ -357,16 +363,25 @@ class Server:
             elapsed, last = now - last, now
             enc = round(statistics.median(self.encode_ms), 1) if self.encode_ms else None
             self.encode_ms.clear()
+            source = dropped = encoded = 0
+            if self.capture is not None:
+                source, dropped, encoded, _ = self.capture.take_counters()
+            pipeline_stats = {
+                "enc": enc,
+                "src": round(source / elapsed, 1),  # Mutter'dan gelen kare/sn
+                "drop": round(dropped / elapsed, 1),  # emniyet probunun attığı
+                "encfps": round(encoded / elapsed, 1),  # JPEG'e çevrilen
+            }
             frame = self.latest
             for client in list(self.clients):
                 stats = client.take_stats(elapsed)
-                stats["enc"] = enc
+                stats.update(pipeline_stats)
                 if frame is not None:
                     stats["size"] = [frame.width, frame.height]
                 await _safe_send(client.ws, json.dumps(stats))
-            if self.capture is not None and self.capture.dropped_by_probe:
-                log.debug("emniyet probu %d kare attı", self.capture.dropped_by_probe)
-                self.capture.dropped_by_probe = 0
+            if self.clients and source:
+                log.debug("kaynak %.0f/sn, prob attı %.0f/sn, kodlanan %.0f/sn",
+                          source / elapsed, dropped / elapsed, encoded / elapsed)
 
     def _spawn(self, coro) -> None:
         task = asyncio.create_task(coro)

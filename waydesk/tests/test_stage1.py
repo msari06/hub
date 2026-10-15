@@ -57,6 +57,7 @@ class MutterDBusTest(unittest.IsolatedAsyncioTestCase):
     def tearDownClass(cls):
         cls.daemon.terminate()
         cls.daemon.wait()
+        cls.daemon.stdout.close()
         if cls._old_address is None:
             os.environ.pop("DBUS_SESSION_BUS_ADDRESS", None)
         else:
@@ -158,6 +159,50 @@ class FlowControlTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(client.latencies), 1)
         ws.closed = True
         sender.cancel()
+
+
+class RateProbeTest(unittest.TestCase):
+    """Emniyet probu: Mutter sınıra uyuyorsa (titremeli 30 fps) kare atmamalı,
+    uymuyorsa (165 fps) ortalamayı ~30'da tutmalı."""
+
+    def _run(self, timestamps):
+        from unittest import mock
+
+        import gi
+
+        gi.require_version("Gst", "1.0")
+        from gi.repository import Gst
+
+        from waydesk import capture as capture_mod
+
+        cap = capture_mod.JpegCapture(source="pipewire", node_id=1, width=1920, height=1080,
+                                      fps=30, max_width=0, quality=50,
+                                      on_frame=lambda f: None, on_error=lambda r: None)
+        cap._last_probe = timestamps[0]
+        passed = 0
+        for t in timestamps:
+            with mock.patch.object(capture_mod.time, "monotonic", return_value=t):
+                if cap._rate_probe(None, None) == Gst.PadProbeReturn.OK:
+                    passed += 1
+        return passed, cap.dropped_by_probe
+
+    def test_jittery_30fps_is_not_dropped(self):
+        import random
+
+        rng = random.Random(1)
+        timestamps, t = [], 100.0
+        for _ in range(300):  # 10 sn, 33.3 ms ± 8 ms
+            t += 1 / 30 + rng.uniform(-0.008, 0.008)
+            timestamps.append(t)
+        passed, dropped = self._run(timestamps)
+        self.assertEqual(dropped, 0)
+        self.assertEqual(passed, 300)
+
+    def test_165fps_is_capped_near_30(self):
+        timestamps = [100.0 + i / 165 for i in range(165 * 4)]  # 4 sn
+        passed, _dropped = self._run(timestamps)
+        self.assertLessEqual(passed, 30 * 1.15 * 4 + 3)
+        self.assertGreaterEqual(passed, 30 * 4)
 
 
 class JpegCaptureTest(unittest.IsolatedAsyncioTestCase):
