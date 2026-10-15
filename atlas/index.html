@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Atlas Oyunları</title>
+<meta name="description" content="Bayrak ve siyasi harita mini oyunları: haritada bul, bayrak bil, bayrak renkleri, yapboz, rota, dört renk ve günlük challenge." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,600..800&family=Instrument+Sans:wght@400..700&family=JetBrains+Mono:wght@500;700&display=swap" />
+<link rel="stylesheet" href="css/atlas.css" />
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" id="home-link" href="#"><b>Atlas</b><span>bayrak ve harita oyunları</span></a>
+  <div class="top-actions">
+    <button type="button" class="btn" id="profile-btn">Rozetler <span id="badge-count"></span></button>
+    <button type="button" class="btn" id="sound-btn" aria-pressed="true">Ses açık</button>
+  </div>
+</header>
+<main id="home"></main>
+<section id="game" hidden></section>
+<div id="modal" hidden></div>
+<div id="toasts" aria-live="polite"></div>
+
+<script src="js/vendor/d3-array.min.js"></script>
+<script src="js/vendor/d3-geo.min.js"></script>
+<script src="js/vendor/topojson-client.min.js"></script>
+<script src="data/world.js"></script>
+<script src="data/countries.js"></script>
+<script src="data/flags.js"></script>
+<script src="js/core.js"></script>
+<script src="js/map.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/games/quiz.js"></script>
+<script src="js/games/map-games.js"></script>
+<script src="js/games/flag-games.js"></script>
+<script src="js/games/puzzles.js"></script>
+<script src="js/games/challenges.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

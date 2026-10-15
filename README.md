@@ -57,6 +57,14 @@ python3 generate.py            # → index.html + data.json
 }
 ```
 
+## Atlas — bayrak ve harita oyunları
+
+`atlas/` klasöründe aynı statik yaklaşımla (backend yok, `file://` ile açılır)
+yapılmış bir coğrafya oyunu var: 8 siyasi harita (Dünya, Avrupa, Asya, Afrika,
+Kuzey/Güney Amerika, Okyanusya, Orta Doğu) üzerinde 20 mini oyun — haritada bul,
+bayrak bil, bayrak renkleri, bayrağı boya, yapboz, rota, sınır zinciri, dört renk
+bulmacası, günlük challenge ve daha fazlası. Ayrıntılar: [`atlas/README.md`](atlas/README.md).
+
 ## Agent oto-post (opsiyonel)
 
 `HUB_AUTOPOST=1` iken Claude Code oturumu bittiğinde son asistan özeti otomatik
